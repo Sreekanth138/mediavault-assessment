@@ -1,10 +1,14 @@
 # Submission
 
+Keep this tight. Bullet points are fine. We read this before we read your code,
+
+and a clear account of your reasoning carries real weight — including where you
+
+chose not to do something.
+
 ## Video walkthrough
 
-Paste your Loom (or equivalent) link here. 5–10 minutes.
-
-**Link:**
+**Link:** Not provided.
 
 ---
 
@@ -15,161 +19,132 @@ npm install
 npm run dev
 ```
 
-The application expects the provided API/server to be running according to the instructions in `API.md`.
+The app uses the provided API/server setup described in `API.md`.
 
 No changes were made to `server/` or `API.md`.
 
 ## Time spent
 
-Approximately 10–14 focused hours.
-
-Time was primarily split across:
-
-* Baseline investigation and defect identification
-* Search correctness and request handling
-* Cursor pagination and infinite scrolling
-* Bulk selection and bulk status operations
-* Retry/resilience behavior
-* Optimistic updates and rollback
-* Error/offline handling
-* UI fixes and regression testing
+Roughly 10–14 focused hours, including investigation, implementation, debugging, and testing.
 
 ---
 
 ## Baseline defects found
 
-| #  | Defect                                                      | Where                            | Fixed / left / out of scope                          |
-| -- | ----------------------------------------------------------- | -------------------------------- | ---------------------------------------------------- |
-| 1  | Bulk update sends >50 ids in one call                       | `App.tsx`                        | **Fixed** — IDs are chunked into groups of 50        |
-| 2  | Search sends a request on every keystroke                   | `App.tsx` / asset fetching       | **Fixed** — 300ms debounce                           |
-| 3  | Older search responses can overwrite newer results          | `useAssets.ts`                   | **Fixed** — request cancellation + request identity  |
-| 4  | Cursor pagination was not implemented                       | `useAssets.ts` / `AssetGrid.tsx` | **Fixed**                                            |
-| 5  | Asset grid did not scroll/load additional cursor pages      | `AssetGrid.tsx` / CSS            | **Fixed**                                            |
-| 6  | Missing thumbnails can display broken images                | `AssetGrid.tsx`                  | **Fixed** — placeholder when `hasThumbnail` is false |
-| 7  | Bulk partial failures were not handled per asset            | `App.tsx`                        | **Fixed**                                            |
-| 8  | Bulk conflicts were not retried                             | `App.tsx`                        | **Fixed** — conflict retry once                      |
-| 9  | Bulk updates were not optimistic                            | `App.tsx` / `useAssets.ts`       | **Fixed**                                            |
-| 10 | Failed optimistic updates were not rolled back individually | `App.tsx`                        | **Fixed**                                            |
-| 11 | Checkbox clicks opened asset details                        | `AssetGrid.tsx`                  | **Fixed**                                            |
-| 12 | Shift-click range selection was missing                     | `AssetGrid.tsx` / `App.tsx`      | **Fixed**                                            |
-| 13 | Browser offline state was not surfaced                      | `App.tsx`                        | **Fixed**                                            |
-| 14 | Unexpected React rendering errors had no recovery UI        | App root                         | **Fixed** — Error Boundary                           |
-| 15 | Full keyboard grid navigation was missing                   | `AssetGrid.tsx`                  | **Left** — not completed within submission time      |
+| #  | Defect                                                   | Where                            | Fixed / left / out of scope                                          |
+| -- | -------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------- |
+| 1  | Bulk update can exceed the API's 50-ID limit             | `App.tsx`                        | Fixed — IDs are chunked into groups of 50                            |
+| 2  | Search fires a request on every keystroke                | `App.tsx`                        | Fixed — 300ms debounce                                               |
+| 3  | Older search responses can overwrite newer results       | `useAssets.ts` / API client      | Fixed — request cancellation and request identity checks             |
+| 4  | Cursor pagination was not implemented                    | `useAssets.ts`                   | Fixed — cursor-based loading added                                   |
+| 5  | Asset grid did not load additional pages while scrolling | `AssetGrid.tsx`                  | Fixed — scroll threshold triggers `loadMore`                         |
+| 6  | Missing thumbnails could render as broken images         | `AssetGrid.tsx`                  | Fixed — stable "No preview" placeholder                              |
+| 7  | Bulk partial failures were not reconciled per asset      | `App.tsx`                        | Fixed — successful items remain updated and failures are rolled back |
+| 8  | Bulk version conflicts were not retried                  | `App.tsx`                        | Fixed — conflicted IDs are retried once                              |
+| 9  | Bulk status changes were not optimistic                  | `App.tsx`                        | Fixed — selected assets update immediately                           |
+| 10 | Failed optimistic updates were not rolled back           | `App.tsx`                        | Fixed — previous statuses are restored for failed items              |
+| 11 | Clicking a checkbox could also open the asset detail     | `AssetGrid.tsx`                  | Fixed — checkbox events stop propagation                             |
+| 12 | Shift-click range selection was missing                  | `AssetGrid.tsx` / `App.tsx`      | Fixed — range selection added                                        |
+| 13 | Offline state was not surfaced to the user               | `App.tsx`                        | Fixed — online/offline state is displayed                            |
+| 14 | No React error boundary existed                          | `ErrorBoundary.tsx` / `main.tsx` | Fixed — application-level error boundary added                       |
+| 15 | Full keyboard grid navigation was missing                | `AssetGrid.tsx`                  | Left — not completed within the submission time                      |
 
 ---
 
 ## Key decisions
 
-**### Data fetching and caching**
+For each significant choice: what you did, what you rejected, and why. Three to
 
-I kept the existing API client structure rather than introducing a large data-fetching library. The API client handles structured API errors, retry behavior, `Retry-After`, and request cancellation. Asset pagination remains cursor-based because the API provides an opaque cursor.
+six of these is about right.
 
-**### Stale response handling**
+**Data fetching and caching**
 
-Search requests use `AbortController` and request identity tracking. Pagination requests also use request identity tracking so an obsolete request cannot append results after the user changes the query.
+Kept asset fetching centralized through the existing API client and `useAssets` hook. Added structured API errors, cancellation, retry handling, and cursor-based pagination rather than introducing a larger data-fetching library for the assessment.
 
-**### Virtualization approach**
+**Stale response handling**
 
-Full virtualization was not completed. The implementation uses cursor pagination to avoid loading the entire dataset at once, while the loaded asset list is progressively appended as the user scrolls. Full virtualization was left as a further performance improvement rather than introducing a large change late in the implementation.
+Used `AbortController` to cancel obsolete requests and request identity checks to prevent an older response from updating the current UI. This handles both actual cancellation and responses that race with newer requests.
 
-**### Optimistic updates and rollback**
+**Virtualization approach**
 
-Bulk status changes update the visible assets optimistically. Previous statuses are captured before the update. Successful assets retain the new status, while assets that ultimately fail are rolled back individually and remain selected so the user can identify them.
+Full list virtualization was not completed. I prioritized cursor pagination, bounded page loading, and a real scroll container first. With more time I would add virtualization for very large loaded result sets and measure the effect before choosing the final implementation.
 
-**### Retry and backoff policy**
+**Optimistic updates and rollback**
 
-Transient API failures such as `429`, `503`, and `500 write_failed` are retried with exponential backoff and jitter. `Retry-After` is respected when provided. Non-transient errors are not blindly retried. Bulk `conflict` results are retried once at the individual-result level.
+Bulk status changes update the UI immediately. The previous status of each selected asset is retained so failed items can be rolled back individually. Successful items remain updated, while failed items remain selected so the user can retry them.
 
-**### State placement and URL sync**
+**Retry and backoff policy**
 
-Asset data remains owned by `useAssets`. Search, status, and sort state are kept in the application state and synchronized to the URL so the current search state can be refreshed/shared without introducing a second copy of the asset list in `App.tsx`.
+Transient failures such as 429, 503, and the API's transient write failure are retried with exponential backoff and jitter. `Retry-After` is honored when provided, and retries are bounded. Non-transient validation/conflict responses are not blindly retried. Bulk version conflicts are retried once for the affected IDs.
+
+**State placement and URL sync**
+
+Asset data remains in the `useAssets` state while query controls such as search, status, and sort are synchronized to the URL. Search input is debounced before it becomes the API query.
 
 ---
 
 ## Performance
 
-I did not complete the formal 5,000-row performance benchmark requested by the template, so I am intentionally not inventing measurements.
+Formal 5,000-row performance benchmarking was not completed before submission, so I have not included estimated numbers.
 
-| Metric                                          | Before       | After               | How measured          |
-| ----------------------------------------------- | ------------ | ------------------- | --------------------- |
-| Rendered DOM nodes at 5,000 rows loaded         | Not measured | Not measured        | Not completed         |
-| Cards re-rendered when toggling one selection   | Not measured | Not measured        | Not completed         |
-| Longest task during sustained scroll            | Not measured | Not measured        | Not completed         |
-| Requests fired while typing a 6-character query | 6 requests   | 1 debounced request | Browser Network panel |
-| Production bundle, gzipped                      | Not measured | Not measured        | Not completed         |
+| Metric                                          | Before       | After        | How measured                          |
+| ----------------------------------------------- | ------------ | ------------ | ------------------------------------- |
+| Rendered DOM nodes at 5,000 rows loaded         | Not measured | Not measured | Not formally benchmarked              |
+| Cards re-rendered when toggling one selection   | Not measured | Not measured | Not formally benchmarked              |
+| Longest task during sustained scroll            | Not measured | Not measured | Not formally benchmarked              |
+| Requests fired while typing a 6-character query | 6            | 1            | Browser Network panel; 300ms debounce |
+| Production bundle, gzipped                      | Not measured | Not measured | Not formally benchmarked              |
 
-The most immediate performance/correctness bottlenecks found during development were unnecessary search requests, stale out-of-order responses, and lack of cursor pagination.
-
-Search was changed to debounce input, obsolete requests are cancelled/ignored, and pagination now loads additional results only as the user approaches the end of the loaded asset grid.
+The main observable bottleneck during investigation was unnecessary network activity from search input and the lack of proper cursor-driven scrolling. I addressed those before spending time on deeper performance optimization.
 
 ---
 
 ## Accessibility
 
-Native checkbox controls are used for selection, including Shift-click range selection. Checkbox interaction is separated from the card's activation behavior so selecting an asset does not unexpectedly open the details panel. Offline and error states expose appropriate alert semantics.
+Native checkboxes are used for selection, including Shift-click range selection. Checkbox interaction is separated from opening the asset detail view, and visible UI feedback is provided for offline and error states.
 
-The full custom keyboard grid model requested by the assessment was not completed. In particular, roving tabindex, arrow-key navigation, focus management around the detail panel, and full screen-reader grid interaction remain known gaps.
-
-No full screen-reader test was completed.
+The complete custom keyboard grid interaction model was not implemented. In particular, roving tabindex, arrow-key grid navigation, focus management into and back from the detail panel, and full screen-reader testing remain known gaps.
 
 ---
 
 ## Interface decisions
 
-The interface work prioritized clarity of asset state, predictable selection behavior, and clear feedback during asynchronous operations. The asset grid is a dedicated scroll container so pagination can happen naturally as the user approaches the end of the loaded content. Bulk operations provide immediate optimistic feedback while preserving failed assets for review.
+The interface was kept focused on the existing MediaVault structure while improving the states that are most important during unreliable API interactions. The main UI decisions were to provide clear loading/error/offline feedback, keep selection interactions predictable, and avoid broken thumbnail imagery.
 
-* **Visual system.** Existing application styling was retained and extended rather than introducing a new design system late in the implementation. Grid spacing and card sizing were adjusted to maintain a usable asset grid and real scrollable content area.
-
-* **Status treatment.** Asset status continues to use the existing status presentation. Bulk-operation feedback also provides text-based success/failure information rather than relying only on color.
-
-* **States.** Loading, empty, error, offline, missing-thumbnail, and partial-bulk-failure states were handled explicitly. Missing thumbnails use a stable placeholder. Offline state displays an offline banner. Partial failures identify failure codes when available.
-
-* **Contrast.** No formal WCAG contrast audit was completed.
-
-* **Copy.** Bulk feedback was made more actionable by including failure reasons where available, for example `5 legal_hold`, rather than only showing a generic failed count.
+* **Visual system.** Existing application styling was retained. Grid sizing and card dimensions were adjusted so the scrollable asset area behaves predictably across viewport sizes.
+* **Status treatment.** Status changes are communicated through text and UI state rather than relying only on color.
+* **States.** Loading, empty/error handling, missing thumbnails, offline state, and partial bulk-update failures are explicitly represented.
+* **Contrast.** No formal WCAG AA contrast audit was completed.
+* **Copy.** Error and failure messages were kept actionable, for example reporting how many items were updated and how many failed.
 
 ---
 
 ## Trade-offs and cuts
 
-The main deliberate cut was the complete keyboard-accessible grid interaction model. Implementing roving tabindex, arrow navigation, focus return, and screen-reader behavior correctly would require additional testing and could introduce regressions close to submission.
+The main deliberate cuts were full keyboard grid navigation, full virtualization, formal performance benchmarking, and a formal WCAG AA contrast audit.
 
-Full virtualization and formal performance benchmarking were also not completed.
+Given the submission time, I prioritized correctness around search, stale requests, cursor pagination, bulk operations, optimistic rollback, transient failures, offline state, and error handling.
 
-With another day, I would prioritize:
-
-1. Complete keyboard and screen-reader interaction.
-2. Add true virtualization for very large loaded result sets.
-3. Add formal performance measurements using the requested metrics.
-4. Complete a WCAG AA contrast/accessibility audit.
-5. Expand automated tests around search races, pagination races, and partial bulk failures.
-
----
+With another day, I would prioritize the complete keyboard interaction model first, followed by virtualization and measured performance optimization, then a more systematic accessibility audit.
 
 ## Critique of the API
 
-The API's intentionally hostile behavior makes the client resilient, but several aspects increase client complexity.
+The cursor is tied to the query state, so the client needs to reset pagination whenever the query changes.
 
-The opaque cursor is correctly bound to the query, which requires the client to reset pagination whenever query state changes. This is safe but requires careful stale-cursor handling.
+The bulk API returning per-item results, including partial success, requires client-side reconciliation and rollback logic.
 
-The bulk-status API returning `207` with per-item results is useful for partial success, but it requires the client to reconcile each result individually and maintain selection/rollback state.
+The transient failure and rate-limit behavior also makes centralized retry handling important. Otherwise, each feature would need to implement its own backoff and `Retry-After` handling.
 
-The combination of random transient failures, rate limiting, and `Retry-After` requires centralized retry logic in the client. Retrying requests also consumes rate-limit capacity, so retry policy must be conservative.
-
-The `conflict` result is also useful, but a richer version/conflict response could make conflict resolution more explicit.
-
----
+A richer conflict response could provide more information about the current asset version and make conflict resolution more explicit instead of requiring a client retry.
 
 ## Anything you would like us to look at
 
-The areas I would particularly like reviewers to inspect are:
+The areas I would especially highlight are:
 
-* Search cancellation and stale-response protection
-* Cursor pagination and scroll loading
-* Bulk chunking and bounded concurrency
-* Optimistic updates and per-asset rollback
-* Conflict retry handling
-* Structured API error/retry behavior
-* The separation of asset state inside `useAssets` from UI state in `App.tsx`
-
-The biggest known gap is the incomplete keyboard-accessibility model, which I would address next with additional time.
+* Search cancellation, debouncing, and stale-response protection
+* Cursor pagination and scroll-triggered loading
+* Bulk update chunking and bounded concurrency
+* Optimistic updates with per-item rollback
+* Version-conflict retry handling
+* Structured API errors and retry/backoff behavior
+* Missing-thumbnail and offline/error states
