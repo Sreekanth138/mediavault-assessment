@@ -21,10 +21,7 @@ export function AssetGrid({
   activeId,
   onToggleSelect,
   onOpen,
-  hasMore,
-  loadingMore,
   onLoadMore,
-  lastSelectedId,
 }: Props) {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const shiftKeyRef = useRef(false);

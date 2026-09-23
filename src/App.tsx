@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { bulkSetStatus } from "@/api/client";
 import { AssetDetail } from "@/features/assets/AssetDetail";
 import { AssetGrid } from "@/features/assets/AssetGrid";
